@@ -1,0 +1,793 @@
+---
+title: "forest_plot"
+output: html_document
+---
+
+### 1. Load Package
+```{r}
+library(tidyverse)
+library(forestploter)
+library(grid)
+```
+
+### 2. Prepare Data
+```{r}
+plot_data <- tibble::tribble(
+  ~survey, ~follow_up, ~analysis, ~sex, ~n, ~estimate, ~lower_ci, ~upper_ci,
+
+  # SPHC 2010 (followed up until 2014)
+  "SPHC 2010", "2010–2014", "Complete-case",       "Female", 3231, 5.88, 4.20,  7.98,
+  "SPHC 2010", "2010–2014", "Complete-case",       "Male",   2159, 8.24, 4.89, 13.18,
+  "SPHC 2010", "2010–2014", "MI without income",  "Female", 5624, 4.83, 3.47,  6.72,
+  "SPHC 2010", "2010–2014", "MI without income",  "Male",   4208, 5.95, 3.73,  9.50,
+  "SPHC 2010", "2010–2014", "MI with income", "Female", 5624, 4.65, 3.34,  6.46,
+  "SPHC 2010", "2010–2014", "MI with income", "Male",   4208, 5.53, 3.42,  8.95,
+
+  # SPHC 2010 (followed up until 2021)
+  "SPHC 2010", "2010–2021", "Complete-case",       "Female", 2463, 6.17, 3.98,  9.12,
+  "SPHC 2010", "2010–2021", "Complete-case",       "Male",   1592, 7.71, 4.26, 13.01,
+  "SPHC 2010", "2010–2021", "MI without income",  "Female", 5624, 4.57, 2.91,  7.16,
+  "SPHC 2010", "2010–2021", "MI without income",  "Male",   4208, 6.16, 3.49,  10.88,
+  "SPHC 2010", "2010–2021", "MI with income", "Female", 5624, 4.26, 2.70,  6.72,
+  "SPHC 2010", "2010–2021", "MI with income", "Male",   4208, 5.19, 3.01,  8.94,
+
+  # SPHC 2014 (followed up until 2021)
+  "SPHC 2014", "2014–2021", "Complete-case",       "Female", 2285, 8.62, 6.36, 11.62,
+  "SPHC 2014", "2014–2021", "Complete-case",       "Male",   1574, 7.85, 4.62, 12.83,
+  "SPHC 2014", "2014–2021", "MI without income",  "Female", 3417, 7.68, 5.54, 10.63,
+  "SPHC 2014", "2014–2021", "MI without income",  "Male",   2573, 6.59, 4.04, 10.75,
+  "SPHC 2014", "2014–2021", "MI with income","Female", 3417, 7.34, 5.52,  9.78,
+  "SPHC 2014", "2014–2021", "MI with income","Male",   2573, 6.10, 3.65, 10.20
+) %>%
+  mutate(
+    survey = factor(
+      survey,
+      levels = c("SPHC 2010", "SPHC 2014")
+    ),
+    follow_up = factor(
+      follow_up,
+      levels = c("2010–2014", "2010–2021", "2014–2021")
+    ),
+    analysis = factor(
+      analysis,
+      levels = c(
+        "Complete-case",
+        "MI without income",
+        "MI with income"
+      )
+    ),
+    sex = factor(
+      sex,
+      levels = c("Female", "Male")
+    )
+  )
+
+plot_data <- plot_data %>% 
+  add_row( analysis = "SPHC 2010 (2010–2014)", .before = 1 )
+
+plot_data <- plot_data %>% 
+  add_row( analysis = "SPHC 2010 (2010–2021)", .before = 8 )
+
+plot_data <- plot_data %>% 
+  add_row( analysis = "SPHC 2014 (2014–2021)", .before = 15 )
+
+plot_data <- plot_data %>%
+  select( -c(1:2) ) %>%
+  rename( Model = analysis,
+          sample_size = n )
+
+
+plot_data$Model <- ifelse( is.na( plot_data$estimate ),
+                              plot_data$Model,
+                              paste0( "\u2003", plot_data$Model ) )
+
+plot_data <- plot_data %>%
+  mutate( sample_size = prettyNum( sample_size, big.mark = ",", preserve.width = "none" ) )
+
+plot_data <- plot_data %>%
+  mutate(
+    across(
+      c(sample_size),
+      ~ replace(.x, .x == "NA", "")
+    )
+  )
+
+str(plot_data)
+
+plot_data$` ` <- paste( rep( " ", 20 ) , collapse = " " )
+
+plot_data <- plot_data %>%
+  mutate(
+    `RR (95% CI)` = if_else(
+      is.na(estimate),
+      "",
+      sprintf(
+        "%.2f (%.2f, %.2f)",
+        estimate, lower_ci, upper_ci
+      )
+    )
+  )
+```
+
+### 3. Among Males
+```{r}
+plot_data_male <- plot_data %>%
+  filter( sex == "Male" | is.na( sex ) ) %>%
+  add_column( temp1 = " ", .before = 2 ) %>%
+  add_column( temp2 = " ", .before = 9 )
+
+plot_data_male_forest <- plot_data_male %>%
+  select(1, 2, 4, 8, 9, 10)
+
+names( plot_data_male_forest )[ names( plot_data_male_forest ) %in% c( "model", "temp1", "temp2", "Model", "sample_size", "RR (95% CI)" ) ] <- ""
+
+tm <- forest_theme(
+  base_size = 11,
+  colhead = list( fg_params = list( fontsize = 11 ) ), 
+  base_family = "Arial",
+  ci_col = "#0072B2",
+  refline_gp = gpar(col = "grey50", lty = "dashed", lwd = 1)
+  )
+
+p_rr_male <- forest(
+  plot_data_male_forest,
+  
+  est = plot_data_male$estimate,
+  lower = plot_data_male$lower_ci,
+  upper = plot_data_male$upper_ci,
+  
+  ci_column = 4,
+  sizes = 0.4,
+  
+  xlim = c( 0, 14 ),
+  ticks_at = seq( 0, 14, 2 ),
+  ref_line = 1,
+  xlab = "Risk Ratio (95% CI)",
+  theme = tm
+)
+
+p_rr_male <- edit_plot( 
+  p_rr_male,
+  row = c( 1, 5, 9 ),
+  col = 1,
+  gp = gpar( fontface = "bold" )
+  )
+
+p_rr_male <- add_text(
+  p_rr_male,
+  text = "Model",
+  col = 1,
+  row = 1,
+  part = "header",
+  gp = gpar(
+    fontface = "bold",
+    fontsize = 11,
+    fontfamily = "Arial"
+  )
+)
+
+p_rr_male <- add_text(
+  p_rr_male,
+  text = "Size",
+  col = 3,
+  row = 1,
+  part = "header",
+  gp = gpar(
+    fontface = "bold",
+    fontsize = 11,
+    fontfamily = "Arial"
+  )
+)
+
+p_rr_male <- add_text(
+  p_rr_male,
+  text = "(95% CI)",
+  col = 6,
+  row = 1,
+  part = "header",
+  gp = gpar(
+    fontface = "bold",
+    fontsize = 11,
+    fontfamily = "Arial"
+  )
+)
+
+p_rr_male <- insert_text(
+  p_rr_male,
+  text = "Imputation",
+  col = 1,
+  row = 1,
+  part = "header",
+  gp = gpar(
+    fontface = "bold",
+    fontsize = 11,
+    fontfamily = "Arial"
+  )
+)
+
+p_rr_male <- add_text(
+  p_rr_male,
+  text = "Sample",
+  col = 3,
+  row = 1,
+  part = "header",
+  gp = gpar(
+    fontface = "bold",
+    fontsize = 11,
+    fontfamily = "Arial"
+  )
+)
+
+p_rr_male <- add_text(
+  p_rr_male,
+  text = "Risk Ratio",
+  col = 6,
+  row = 1,
+  part = "header",
+  gp = gpar(
+    fontface = "bold",
+    fontsize = 11,
+    fontfamily = "Arial"
+  )
+)
+
+p_rr_male <- edit_plot(
+  p_rr_male,
+  row = 1:12, 
+  which = "background",
+  gp = gpar( fill = NA )
+  )
+
+p_rr_male <- add_border(
+  p_rr_male,
+  part = "header",
+  row = 2,
+  col = 1:6,
+  where = "bottom",
+  gp = gpar( lwd = 1 )
+  )
+
+p_rr_male <- add_border(
+  p_rr_male,
+  part = "body",
+  row = 1:11,
+  col = 1:3,
+  where = "bottom",
+  gp = gpar( lwd = 1, col = "lightgrey" )
+  )
+
+p_rr_male <- edit_plot(
+  p_rr_male,
+  row = c( 4, 8, 12 ),
+  col = 4,
+  which = "ci",
+  gp = gpar(
+    col = "red",
+    fill = "red"
+    )
+  )
+
+plot( p_rr_male )
+```
+
+
+```{r}
+tm <- forest_theme(
+  base_size = 10,
+  base_family = "Arial",
+  colhead = list( fg_params = list( fontsize = 10 ) ),
+  ci_col = "steelblue",
+  refline_gp = gpar(
+    col = "grey50",
+    lty = "dashed",
+    lwd = 1
+  )
+)
+  
+p <- forest(
+  data = plot_data_forest,
+
+  est = list(
+    plot_data$estimate_Female,
+    plot_data$estimate_Male
+  ),
+
+  lower = list(
+    plot_data$lower_ci_Female,
+    plot_data$lower_ci_Male
+  ),
+
+  upper = list(
+    plot_data$upper_ci_Female,
+    plot_data$upper_ci_Male
+  ),
+
+  ci_column = c(3, 7),
+
+  ref_line = 1,
+
+  xlim = list(
+    c(0, 14),
+    c(0, 14)
+  ),
+
+  ticks_at = list(
+    c(0, 2, 4, 6, 8, 10, 12, 14),
+    c(0, 2, 4, 6, 8, 10, 12, 14)
+  ),
+
+  xlab = c(
+    "Risk Ratio (95% CI)",
+    "Risk Ratio (95% CI)"
+  ),
+
+  theme = tm
+)
+
+plot(p)
+```
+
+
+
+
+
+#### 4.1. MICE and MIA-ICE
+```{r}
+results_all <- bind_rows( 
+  results_cc,
+  results_mia_nice_model_2,
+  results_mia_nice_model_3,
+  results_mia_nice_model_4,
+  results_mia_ice_model_2,
+  results_mia_ice_model_3,
+  results_mia_ice_model_4,
+  results_mi_model_1,
+  results_mi_model_2,
+  results_mi_model_3,
+  results_mi_model_4 )
+
+writexl::write_xlsx( results_all, "results_all.xlsx" )
+
+#results_all <- read_excel(here("results_all.xlsx"))
+
+results_all <- results_all %>%
+  filter( !model %in% c( "mia_nice_model_2", "mia_nice_model_3", "mia_nice_model_4" )  ) %>%
+  select( model, estimate, lower_ci, upper_ci, sample_size )
+
+desired_order <- c( "mi_model_1", "Complete-case analysis",
+                    "mi_model_2", "mia_ice_model_2", 
+                    "mi_model_3", "mia_ice_model_3",
+                    "mi_model_4", "mia_ice_model_4" )
+                    
+results_all <- results_all %>%
+  mutate( model = factor( model, levels = desired_order ) ) %>%
+  arrange( model )
+
+results_all <- results_all %>%
+  mutate( sample_size = prettyNum( sample_size, big.mark = ",", preserve.width = "none" ) )
+
+results_all <- results_all %>% 
+  add_row( model = "Model 1", .before = 1 )
+
+results_all <- results_all %>% 
+  add_row( model = "Model 2", .before = 4 )
+
+results_all <- results_all %>% 
+  add_row( model = "Model 3", .before = 7 )
+
+results_all <- results_all %>% 
+  add_row( model = "Model 4", .before = 10 )
+
+results_all$model[ results_all$model == "Complete-case analysis" ] <- paste0( "   ", "MIA (= uCC)" )
+results_all$model[ results_all$model == "mi_model_1" ] <- paste0( "   ", "MICE" )
+results_all$model[ results_all$model == "mi_model_2" ] <- paste0( "   ", "MICE" )
+results_all$model[ results_all$model == "mi_model_3" ] <- paste0( "   ", "MICE" )
+results_all$model[ results_all$model == "mi_model_4" ] <- paste0( "   ", "MICE" )
+
+# results_all$model[ results_all$model == "mia_nice_model_2" ] <- paste0( "   ", "MIA-NICE" )
+# results_all$model[ results_all$model == "mia_nice_model_3" ] <- paste0( "   ", "MIA-NICE" )
+# results_all$model[ results_all$model == "mia_nice_model_4" ] <- paste0( "   ", "MIA-NICE" )
+
+results_all$model[ results_all$model == "mia_ice_model_2" ] <- paste0( "   ", "MIA-ICE" )
+results_all$model[ results_all$model == "mia_ice_model_3" ] <- paste0( "   ", "MIA-ICE" )
+results_all$model[ results_all$model == "mia_ice_model_4" ] <- paste0( "   ", "MIA-ICE" )
+
+results_all <- results_all %>% 
+  add_column( "risk_ratio" = paste0(
+    sprintf( "%.2f", results_all$estimate ), " (", 
+    sprintf( "%.2f", results_all$lower_ci ), ", ", 
+    sprintf( "%.2f", results_all$upper_ci ), ")" ),
+    .before = 2 )
+
+results_all$risk_ratio <- ifelse( is.na( results_all$estimate ), "", 
+                                  results_all$risk_ratio )
+
+results_all$sample_size <- ifelse( is.na( results_all$estimate ), "",
+                                   results_all$sample_size )
+
+results_all <- results_all %>% 
+  add_column( ` ` = paste( rep( " ", 20 ) , collapse = " " ), .after = 6 )
+
+results_all <- results_all %>%
+  add_column( temp1 = " ", .before = 2 ) %>%
+  add_column( temp2 = "  ", .before = 7 ) %>%
+  add_column( temp3 = "   ", .before = 9 )
+
+names( results_all )[ names( results_all ) %in% c( "model", "temp1", "temp2", "temp3", "risk_ratio", "sample_size" ) ] <- ""
+
+tm <- forest_theme(
+  base_size = 11,
+  colhead = list( fg_params = list( fontsize = 11 ) ), 
+  base_family = "Arial",
+  ci_col = "#0072B2"
+  )
+
+p_rr <- forest(
+  results_all[ , c( 1:3, 7:10 ) ],
+  
+  est = results_all$estimate,
+  lower = results_all$lower_ci,
+  upper = results_all$upper_ci,
+  
+  ci_column = 7,
+  sizes = 0.4,
+  
+  xlim = c( 8, 20 ),
+  ticks_at = c( 8, 12, 16, 20 ),
+  xlab = "Risk Ratio (95% CI)",
+  theme = tm
+)
+
+p_rr <- edit_plot( 
+  p_rr,
+  row = c( 1, 4, 7, 10 ),
+  col = 1,
+  gp = gpar( fontface = "bold" )
+  )
+
+p_rr <- add_text(
+  p_rr,
+  text = "Model",
+  col = 1,
+  row = 1,
+  part = "header",
+  gp = gpar(
+    fontface = "bold",
+    fontsize = 11,
+    fontfamily = "Arial"
+  )
+)
+
+p_rr <- add_text(
+  p_rr,
+  text = "(95% CI)",
+  col = 3,
+  row = 1,
+  part = "header",
+  gp = gpar(
+    fontface = "bold",
+    fontsize = 11,
+    fontfamily = "Arial"
+  )
+)
+
+p_rr <- add_text(
+  p_rr,
+  text = "Size",
+  col = 5,
+  row = 1,
+  part = "header",
+  gp = gpar(
+    fontface = "bold",
+    fontsize = 11,
+    fontfamily = "Arial"
+  )
+)
+
+p_rr <- insert_text(
+  p_rr,
+  text = "Imputation",
+  col = 1,
+  row = 1,
+  part = "header",
+  gp = gpar(
+    fontface = "bold",
+    fontsize = 11,
+    fontfamily = "Arial"
+  )
+)
+
+p_rr <- add_text(
+  p_rr,
+  text = "Risk Ratio",
+  col = 3,
+  row = 1,
+  part = "header",
+  gp = gpar(
+    fontface = "bold",
+    fontsize = 11,
+    fontfamily = "Arial"
+  )
+)
+
+p_rr <- add_text(
+  p_rr,
+  text = "Sample",
+  col = 5,
+  row = 1,
+  part = "header",
+  gp = gpar(
+    fontface = "bold",
+    fontsize = 11,
+    fontfamily = "Arial"
+  )
+)
+
+p_rr <- edit_plot(
+  p_rr,
+  row = 1:12, 
+  which = "background",
+  gp = gpar( fill = NA )
+  )
+
+p_rr <- add_border(
+  p_rr,
+  part = "header",
+  row = 2,
+  col = 1:5,
+  where = "bottom",
+  gp = gpar( lwd = 1 )
+  )
+
+p_rr <- add_border(
+  p_rr,
+  part = "body",
+  row = 1:11,
+  col = 1:3,
+  where = "bottom",
+  gp = gpar( lwd = 1, col = "lightgrey" )
+  )
+
+p_rr <- edit_plot(
+  p_rr,
+  row = c( 3, 6, 9, 12 ),
+  col = 7,
+  which = "ci",
+  gp = gpar(
+    col = "red",
+    fill = "red"
+    )
+  )
+
+plot( p_rr )
+ggsave( "forest_plot.svg", plot = p_rr, width = 6.5, height = 5 )
+```
+
+#### 4.2. MIA-ICE and MIA-NICE
+```{r}
+results_all <- bind_rows( 
+  results_cc,
+  results_mia_nice_model_2,
+  results_mia_nice_model_3,
+  results_mia_nice_model_4,
+  results_mia_ice_model_2,
+  results_mia_ice_model_3,
+  results_mia_ice_model_4,
+  results_mi_model_1,
+  results_mi_model_2,
+  results_mi_model_3,
+  results_mi_model_4 )
+
+#results_all <- read_excel(here("results_all.xlsx"))
+
+results_all <- results_all %>%
+  select( model, estimate, lower_ci, upper_ci, sample_size )
+
+desired_order <- c( "mi_model_1", "Complete-case analysis", 
+                    "mi_model_2", "mia_ice_model_2", "mia_nice_model_2", 
+                    "mi_model_3", "mia_ice_model_3", "mia_nice_model_3",
+                    "mi_model_4", "mia_ice_model_4", "mia_nice_model_4" )
+                    
+results_all <- results_all %>%
+  mutate( model = factor( model, levels = desired_order ) ) %>%
+  arrange( model )
+
+results_all <- results_all %>%
+  mutate( sample_size = prettyNum( sample_size, big.mark = ",", preserve.width = "none" ) )
+
+results_all <- results_all %>% 
+  add_row( model = "Model 1", .before = 1 )
+
+results_all <- results_all %>% 
+  add_row( model = "Model 2", .before = 4 )
+
+results_all <- results_all %>% 
+  add_row( model = "Model 3", .before = 8 )
+
+results_all <- results_all %>% 
+  add_row( model = "Model 4", .before = 12 )
+
+results_all$model[ results_all$model == "Complete-case analysis" ] <- paste0( "   ", "MIA (= uCC)" )
+results_all$model[ results_all$model == "mi_model_1" ] <- paste0( "   ", "MICE" )
+results_all$model[ results_all$model == "mi_model_2" ] <- paste0( "   ", "MICE" )
+results_all$model[ results_all$model == "mi_model_3" ] <- paste0( "   ", "MICE" )
+results_all$model[ results_all$model == "mi_model_4" ] <- paste0( "   ", "MICE" )
+
+results_all$model[ results_all$model == "mia_nice_model_2" ] <- paste0( "   ", "MIA-NICE" )
+results_all$model[ results_all$model == "mia_nice_model_3" ] <- paste0( "   ", "MIA-NICE" )
+results_all$model[ results_all$model == "mia_nice_model_4" ] <- paste0( "   ", "MIA-NICE" )
+
+results_all$model[ results_all$model == "mia_ice_model_2" ] <- paste0( "   ", "MIA-ICE" )
+results_all$model[ results_all$model == "mia_ice_model_3" ] <- paste0( "   ", "MIA-ICE" )
+results_all$model[ results_all$model == "mia_ice_model_4" ] <- paste0( "   ", "MIA-ICE" )
+
+results_all <- results_all %>% 
+  add_column( "risk_ratio" = paste0(
+    sprintf( "%.2f", results_all$estimate ), " (", 
+    sprintf( "%.2f", results_all$lower_ci ), ", ", 
+    sprintf( "%.2f", results_all$upper_ci ), ")" ),
+    .before = 2 )
+
+results_all$risk_ratio <- ifelse( is.na( results_all$estimate ), "", 
+                                  results_all$risk_ratio )
+
+results_all$sample_size <- ifelse( is.na( results_all$estimate ), "",
+                                   results_all$sample_size )
+
+results_all <- results_all %>% 
+  add_column( ` ` = paste( rep( " ", 20 ) , collapse = " " ), .after = 6 )
+
+results_all <- results_all %>%
+  add_column( temp1 = " ", .before = 2 ) %>%
+  add_column( temp2 = "  ", .before = 7 ) %>%
+  add_column( temp3 = "   ", .before = 9 )
+
+names( results_all )[ names( results_all ) %in% c( "model", "temp1", "temp2", "temp3", "risk_ratio", "sample_size" ) ] <- ""
+
+tm <- forest_theme(
+  base_size = 11,
+  colhead = list( fg_params = list( fontsize = 11 ) ), 
+  base_family = "Arial",
+  ci_col = "#0072B2"
+  )
+
+p_rr <- forest(
+  results_all[ , c( 1:3, 7:10 ) ],
+  
+  est = results_all$estimate,
+  lower = results_all$lower_ci,
+  upper = results_all$upper_ci,
+  
+  ci_column = 7,
+  sizes = 0.4,
+  
+  xlim = c( 8, 20 ),
+  ticks_at = c( 8, 12, 16, 20 ),
+  xlab = "Risk Ratio (95% CI)",
+  theme = tm
+)
+
+p_rr <- edit_plot( 
+  p_rr,
+  row = c( 1, 4, 8, 12 ),
+  col = 1,
+  gp = gpar( fontface = "bold" )
+  )
+
+p_rr <- add_text(
+  p_rr,
+  text = "Model",
+  col = 1,
+  row = 1,
+  part = "header",
+  gp = gpar(
+    fontface = "bold",
+    fontsize = 11,
+    fontfamily = "Arial"
+  )
+)
+
+p_rr <- add_text(
+  p_rr,
+  text = "(95% CI)",
+  col = 3,
+  row = 1,
+  part = "header",
+  gp = gpar(
+    fontface = "bold",
+    fontsize = 11,
+    fontfamily = "Arial"
+  )
+)
+
+p_rr <- add_text(
+  p_rr,
+  text = "Size",
+  col = 5,
+  row = 1,
+  part = "header",
+  gp = gpar(
+    fontface = "bold",
+    fontsize = 11,
+    fontfamily = "Arial"
+  )
+)
+
+p_rr <- insert_text(
+  p_rr,
+  text = "Imputation",
+  col = 1,
+  row = 1,
+  part = "header",
+  gp = gpar(
+    fontface = "bold",
+    fontsize = 11,
+    fontfamily = "Arial"
+  )
+)
+
+p_rr <- add_text(
+  p_rr,
+  text = "Risk Ratio",
+  col = 3,
+  row = 1,
+  part = "header",
+  gp = gpar(
+    fontface = "bold",
+    fontsize = 11,
+    fontfamily = "Arial"
+  )
+)
+
+p_rr <- add_text(
+  p_rr,
+  text = "Sample",
+  col = 5,
+  row = 1,
+  part = "header",
+  gp = gpar(
+    fontface = "bold",
+    fontsize = 11,
+    fontfamily = "Arial"
+  )
+)
+
+p_rr <- edit_plot(
+  p_rr,
+  row = 1:15, 
+  which = "background",
+  gp = gpar( fill = NA )
+  )
+
+p_rr <- add_border(
+  p_rr,
+  part = "header",
+  row = 2,
+  col = 1:5,
+  where = "bottom",
+  gp = gpar( lwd = 1 )
+  )
+
+p_rr <- add_border(
+  p_rr,
+  part = "body",
+  row = 1:14,
+  col = 1:3,
+  where = "bottom",
+  gp = gpar( lwd = 1, col = "lightgrey" )
+  )
+
+p_rr <- edit_plot(
+  p_rr,
+  row = c( 3, 6, 7, 10, 11, 14, 15 ),
+  col = 7,
+  which = "ci",
+  gp = gpar(
+    col = "red",
+    fill = "red"
+    )
+  )
+
+plot( p_rr )
+ggsave( "forest_plot_compare.svg", plot = p_rr, width = 6.5, height = 7 )
+```
