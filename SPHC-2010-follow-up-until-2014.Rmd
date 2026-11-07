@@ -109,10 +109,10 @@ miss_var_summary( d_2010_prelim ) # 42.6% missing in identity_change, 41.2% in s
 
 # select a subgroup
 d_2010_selected <- d_2010_prelim %>%
-  filter( age_2010 >= 25 & age_2010 <= 45 ) # select participants aged 25-45 at baseline, because this age group, relative to younger individuals, would be relatively stable socioeconomically
+  filter( age_2010 >= 25 & age_2010 <= 45 & !is.na( sexual_identity_2010 ) ) # select participants aged 25-45 at baseline, because this age group, relative to younger individuals, would be relatively stable socioeconomically
 summary( d_2010_selected )
-nrow( d_2010_selected ) # 10,063
-miss_var_summary( d_2010_selected ) # 46.4% missing in identity_change, 45.9% in sexual_identity_2014, 2.3% in sexual_identity_2010
+nrow( d_2010_selected ) # 9,832
+miss_var_summary( d_2010_selected ) # 45.2% missing in identity_change and sexual_identity_2014
 
 # characteristics table
 explanatory =  c( "sexual_identity_2014", "sex", "age_2010", "country_of_birth", "income_2010", "antidepressant_use_2010", "anxiolytic_use_2010" )
@@ -125,7 +125,7 @@ d_2010_table <- d_2010_selected %>%
   summary_factorlist( dependent,
                       explanatory, 
                       na_include = TRUE,
-                      na_include_dependent = TRUE, 
+                     # na_include_dependent = TRUE, 
                       total_col = TRUE,
                       add_col_totals = TRUE,
                       column = TRUE )
@@ -213,7 +213,7 @@ ggplot( d_2010_selected,
 tab <- table( d_2010_selected$antidepressant_use_2010, is.na( d_2010_selected$sexual_identity_2014 ) )
 tab
 ( tab[ "Yes", "TRUE" ] / sum( tab[ "Yes", ] ) ) / 
-  ( tab[ "No", "TRUE" ] / sum( tab[ "No", ] ) ) # RR = 1.05
+  ( tab[ "No", "TRUE" ] / sum( tab[ "No", ] ) ) # RR = 1.04
 
 ggplot( d_2010_selected,
         aes( x = anxiolytic_use_2010, fill = is.na( sexual_identity_2014 ) ) ) +
@@ -225,7 +225,7 @@ ggplot( d_2010_selected,
 tab <- table( d_2010_selected$anxiolytic_use_2010, is.na( d_2010_selected$sexual_identity_2014 ) )
 tab
 ( tab[ "Yes", "TRUE" ] / sum( tab[ "Yes", ] ) ) / 
-  ( tab[ "No", "TRUE" ] / sum( tab[ "No", ] ) ) # RR = 1.11
+  ( tab[ "No", "TRUE" ] / sum( tab[ "No", ] ) ) # RR = 1.12
 
 
 # correlation of sexual identity in 2010 and mental health

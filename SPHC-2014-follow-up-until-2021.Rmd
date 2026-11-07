@@ -18,7 +18,7 @@ library(mice)
 
 ### 2. SPHC 2014
 ```{r}
-load('/Volumes/LGBT Project data/d_2014.RData')
+load('/Volumes/projects/LGBT Project data/d_2014.RData')
 
 # sexual identity in 2014
 table( d_2014$F14U90G82, useNA = "always" )
@@ -65,7 +65,7 @@ d_2014$income_2014 <- factor( ifelse( d_2014$dispink2014 <= 2500, "<=2,500",
 table( d_2014$income_2014, useNA = "always" )
 
 # use of antidepressants and anxiolytics
-atc_2002_2014 <- read_sas('/Volumes/LGBT Project data/Swedish Registers/atc_pdr_2002_2014.sas7bdat') %>%
+atc_2002_2014 <- read_sas('/Volumes/projects/LGBT Project data/Swedish Registers/atc_pdr_2002_2014.sas7bdat') %>%
   filter( !grepl( "^N05CD", ATC ) ) # include participants who had at least one dispensed prescription of N06A (antidepressants) or N05B (anxiolytics) from 2005-06-30 to 2021-12-31
 
 # check variables
@@ -109,10 +109,10 @@ miss_var_summary( d_2014_prelim ) # 41.2% missing in identity_change, 37.6% in s
 
 # select a subgroup
 d_2014_selected <- d_2014_prelim %>%
-  filter( age_2014 >= 25 & age_2014 <= 45 ) # select participants aged 25-45 at baseline, because this age group, relative to younger individuals, would be relatively stable socioeconomically
+  filter( age_2014 >= 25 & age_2014 <= 45 & !is.na( sexual_identity_2014 ) ) # select participants aged 25-45 at baseline, because this age group, relative to younger individuals, would be relatively stable socioeconomically
 summary( d_2014_selected )
-nrow( d_2014_selected ) # 6,685
-miss_var_summary( d_2014_selected ) # 42.3% missing in identity_change, 38.2% in sexual_identity_2021, 10.4% in sexual_identity_2014, 0.2% in income_2014
+nrow( d_2014_selected ) # 5,990
+miss_var_summary( d_2014_selected ) # 35.6% missing in identity_change and sexual_identity_2021, 0.2% in income_2014
 
 # characteristics table
 explanatory =  c( "sexual_identity_2021", "sex", "age_2014", "country_of_birth", "income_2014", "antidepressant_use_2014", "anxiolytic_use_2014" )
@@ -124,7 +124,7 @@ d_2014_table <- d_2014_selected %>%
   summary_factorlist( dependent,
                       explanatory, 
                       na_include = TRUE,
-                      na_include_dependent = TRUE, 
+                      #na_include_dependent = TRUE, 
                       total_col = TRUE,
                       add_col_totals = TRUE,
                       column = TRUE )
@@ -212,7 +212,7 @@ ggplot( d_2014_selected,
 tab <- table( d_2014_selected$antidepressant_use_2014, is.na( d_2014_selected$sexual_identity_2021 ) )
 tab
 ( tab[ "Yes", "TRUE" ] / sum( tab[ "Yes", ] ) ) / 
-  ( tab[ "No", "TRUE" ] / sum( tab[ "No", ] ) ) # RR = 1.13
+  ( tab[ "No", "TRUE" ] / sum( tab[ "No", ] ) ) # RR = 1.14
 
 ggplot( d_2014_selected,
         aes( x = anxiolytic_use_2014, fill = is.na( sexual_identity_2021 ) ) ) +
