@@ -1,6 +1,6 @@
 # Applied example
 
-[![DOI](https://zenodo.org/badge/1124784388.svg)](https://doi.org/10.5281/zenodo.23035933)
+[![DOI](https://zenodo.org/badge/1124784388.svg)](https://doi.org/10.5281/zenodo.24054707)
 
 This repository includes R scripts for the applied example in Mathur et al. (2026), ***A mechanistic characterization of missingness at random*** (In Preparation).
 
@@ -35,7 +35,7 @@ To demonstrate the functionality of the analysis code:
 1.  Run `00_generate_pseudo_data.R` to generate a synthetic pseudo-dataset in the R environment.
 2.  Run `01-SPHC-2010-2014.Rmd` using the generated pseudo-dataset.
 
-The pseudo-data are provided only for `01-SPHC-2010-2014.Rmd` for illustration purpose.
+The pseudo-data are provided only for `01-SPHC-2010-2014.Rmd` for illustrative purposes. Both scripts should be executed in the same R session so that the generated pseudo-dataset remains available in the R environment.
 
 ## Outputs
 
@@ -51,6 +51,8 @@ The pseudo-data are provided only for `01-SPHC-2010-2014.Rmd` for illustration p
 4.  `04-forest-plot.Rmd` produces:\
     `forest_plot_male.svg` — Figure 7a.\
     `forest_plot_female.svg` — Figure 7b.
+
+The forest plots are generated using numerical results from the original SPHC analyses embedded in `04-forest-plot.Rmd`.
 
 ## Data availability
 
