@@ -5,3 +5,4 @@
 *.nb.html
 README.html
 *.Rproj
+.DS_Store
