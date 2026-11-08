@@ -18,6 +18,16 @@ library(mice)
 
 ### 2. SPHC 2010
 ```{r}
+if (exists("d_2010_selected_pseudo")) {
+  
+  message("Pseudo-data detected. Loading synthetic datasets.")
+
+  d_2010_selected <- d_2010_selected_pseudo
+
+} else {
+  
+  message("Pseudo-data not found. Loading original SPHC data.")
+  
 load('/Volumes/projects/LGBT Project data/d_2010.RData')
 
 # sexual identity in 2010
@@ -252,6 +262,7 @@ tab <- table( d_2010_selected$sexual_identity_2010, d_2010_selected$anxiolytic_u
 tab
 ( tab[ "Non-heterosexual", "Yes" ] / sum( tab[ "Non-heterosexual", ] ) ) / 
   ( tab[ "Heterosexual", "Yes" ] / sum( tab[ "Heterosexual", ] ) ) # RR = 2.46
+}
 ```
 
 ### 3. Among Females
